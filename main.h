@@ -1,5 +1,5 @@
-#ifndef _SHELL_H_
-#define _SHELL_H_
+#ifndef _MAIN_H_
+#define _MAIN_H_
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -59,4 +59,4 @@ char *_strcat(char *dest, char *src);
 
 /*============ END      ==============*/
 
-#endif /* _SHELL_H_ */
+#endif /* _MAIN_H_ */

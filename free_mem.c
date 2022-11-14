@@ -1,4 +1,4 @@
-#include "shell.h"
+#include "main.h"
 
 /**
  * free_dp - A function that frees all the memory allocated for command.

@@ -1,4 +1,4 @@
-#include "shell.h"
+#include "main.h"
 
 /**
  * create_child - A function that creates a sub process.
