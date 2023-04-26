@@ -28,7 +28,7 @@ char **tokening(char *buffer, const char *s)
 	token = strtok(buffer, s);
 	while (token != NULL)
 	{
-		commands[i] = malloc(_strlen(token) + 1);
+		commands[i] = malloc(strlen(token) + 1);
 		if (commands[i] == NULL)
 		{
 			perror("Unable to allocate buffer");
