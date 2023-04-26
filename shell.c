@@ -1,339 +1,120 @@
-/* 
-C Program to design a shell in Linux
-*/
-#include<stdio.h>
-#include<string.h>
-#include<stdlib.h>
-#include<unistd.h>
-#include<sys/types.h>
-#include<sys/wait.h>
-#include<readline/readline.h>
-#include<readline/history.h>
-
-#define MAXCOM 1000 /* max number of letters to be supported */
-#define MAXLIST 100 /* max number of commands to be supported */
-
-/* 
-Clearing the shell using escape sequences
-*/
-#define clear() printf("\033[H\033[J")
-
-/* 
-Greeting shell during startup
-*/
-void init_shell()
+#include "shell.h"
+/**
+ * main - initialize the variables of the program
+ * @argc: number of values received from the command line
+ * @argv: values received from the command line
+ * @env: number of values received from the command line
+ * Return: zero on succes.
+ */
+int main(int argc, char *argv[], char *env[])
 {
-    clear();
-    printf("\n\n\n\n******************"
-        "************************");
-    printf("\n\n\n\t****MY SHELL****");
-    printf("\n\n\t-USE AT YOUR OWN RISK-");
-    printf("\n\n\n\n*******************"
-        "***********************");
-    /* char *username = getenv("USER");
-    char *username;
-    char user = "a user";
-    username = user; */
-    
-    printf("\n\n\nUSER is: @%s", "Harold");
-    printf("\n");
-    sleep(1);
-    clear();
+	data_of_program data_struct = {NULL}, *data = &data_struct;
+	char *prompt = "";
+
+	inicialize_data(data, argc, argv, env);
+
+	signal(SIGINT, handle_ctrl_c);
+
+	if (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && argc == 1)
+	{/* We are in the terminal, interactive mode */
+		errno = 2;/*???????*/
+		prompt = PROMPT_MSG;
+	}
+	errno = 0;
+	sisifo(prompt, data);
+	return (0);
 }
 
-/* 
-Function to take input
-*/
-int takeInput(char *str)
+/**
+ * handle_ctrl_c - print the prompt in a new line
+ * when the signal SIGINT (ctrl + c) is send to the program
+ * @UNUSED: option of the prototype
+ */
+void handle_ctrl_c(int opr UNUSED)
 {
-    char *buf;
-
-    buf = readline("\n($) ");
-    if (strlen(buf) != 0) {
-        add_history(buf);
-        strcpy(str, buf);
-        return 0;
-    } else {
-        return 1;
-    }
+	_print("\n");
+	_print(PROMPT_MSG);
 }
 
-/* 
-Function to print Current Directory.
-*/
-void printDir()
+/**
+ * inicialize_data - inicialize the struct with the info of the program
+ * @data: pointer to the structure of data
+ * @argv: array of arguments pased to the program execution
+ * @env: environ pased to the program execution
+ * @argc: number of values received from the command line
+ */
+void inicialize_data(data_of_program *data, int argc, char *argv[], char **env)
 {
-    char cwd[1024];
-    getcwd(cwd, sizeof(cwd));
-    printf("\nDir: %s", cwd);
+	int i = 0;
+
+	data->program_name = argv[0];
+	data->input_line = NULL;
+	data->command_name = NULL;
+	data->exec_counter = 0;
+	/* define the file descriptor to be readed*/
+	if (argc == 1)
+		data->file_descriptor = STDIN_FILENO;
+	else
+	{
+		data->file_descriptor = open(argv[1], O_RDONLY);
+		if (data->file_descriptor == -1)
+		{
+			_printe(data->program_name);
+			_printe(": 0: Can't open ");
+			_printe(argv[1]);
+			_printe("\n");
+			exit(127);
+		}
+	}
+	data->tokens = NULL;
+	data->env = malloc(sizeof(char *) * 50);
+	if (env)
+	{
+		for (; env[i]; i++)
+		{
+			data->env[i] = str_duplicate(env[i]);
+		}
+	}
+	data->env[i] = NULL;
+	env = data->env;
+
+	data->alias_list = malloc(sizeof(char *) * 20);
+	for (i = 0; i < 20; i++)
+	{
+		data->alias_list[i] = NULL;
+	}
 }
-
-/* 
-Function where the system command is executed
-*/
-void execArgs(char **parsed)
+/**
+ * sisifo - its a infinite loop that shows the prompt
+ * @prompt: prompt to be printed
+ * @data: its a infinite loop that shows the prompt
+ */
+void sisifo(char *prompt, data_of_program *data)
 {
-    /* 
-    Forking a child
-    */
-    pid_t pid = fork(); 
+	int error_code = 0, string_len = 0;
 
-    if (pid == -1) {
-        printf("\nFailed forking child..");
-        return;
-    } else if (pid == 0) {
-        if (execvp(parsed[0], parsed) < 0) {
-            printf("\nCould not execute command..");
-        }
-        exit(0);
-    } else {
-        /* 
-        waiting for child to terminate
-        */
-        wait(NULL); 
-        return;
-    }
-}
+	while (++(data->exec_counter))
+	{
+		_print(prompt);
+		error_code = string_len = _getline(data);
 
-/* 
-Function where the piped system commands is executed
-*/
-void execArgsPiped(char **parsed, char **parsedpipe)
-{
-    /* 
-    0 is read end, 1 is write end
-    */
-    int pipefd[2]; 
-    pid_t p1, p2;
-
-    if (pipe(pipefd) < 0) {
-        printf("\nPipe could not be initialized");
-        return;
-    }
-    p1 = fork();
-    if (p1 < 0) {
-        printf("\nCould not fork");
-        return;
-    }
-
-    if (p1 == 0) {
-        /* 
-        Child 1 executing..
-        */
-        /* 
-        It only needs to write at the write end
-        */
-        close(pipefd[0]);
-        dup2(pipefd[1], STDOUT_FILENO);
-        close(pipefd[1]);
-
-        if (execvp(parsed[0], parsed) < 0) {
-            printf("\nCould not execute command 1..");
-            exit(0);
-        }
-    } else {
-        /* 
-        Parent executing
-        */
-        p2 = fork();
-
-        if (p2 < 0) {
-            printf("\nCould not fork");
-            return;
-        }
-
-        /* 
-        Child 2 executing..
-        */
-        /* 
-        It only needs to read at the read end
-        */
-        if (p2 == 0) {
-            close(pipefd[1]);
-            dup2(pipefd[0], STDIN_FILENO);
-            close(pipefd[0]);
-            if (execvp(parsedpipe[0], parsedpipe) < 0) {
-                printf("\nCould not execute command 2..");
-                exit(0);
-            }
-        } else {
-            /* 
-            parent executing, waiting for two children
-            */
-            wait(NULL);
-            wait(NULL);
-        }
-    }
-}
-
-/* 
-Help command builtin
-*/
-void openHelp()
-{
-    puts("\n***WELCOME TO MY SHELL HELP***"
-        "\nCopyright @ Suprotik Dey"
-        "\n-Use the shell at your own risk..."
-        "\nList of Commands supported:"
-        "\n>cd"
-        "\n>ls"
-        "\n>exit"
-        "\n>all other general commands available in UNIX shell"
-        "\n>pipe handling"
-        "\n>improper space handling");
-    return;
-}
-
-/* 
-Function to execute builtin commands
-*/
-int ownCmdHandler(char **parsed)
-{
-    int NoOfOwnCmds = 4, i, switchOwnArg = 0;
-    /* char *ListOfOwnCmds[NoOfOwnCmds]; */
-    char *ListOfOwnCmds[4];
-    char *username;
-
-    ListOfOwnCmds[0] = "exit";
-    ListOfOwnCmds[1] = "cd";
-    ListOfOwnCmds[2] = "help";
-    ListOfOwnCmds[3] = "hello";
-
-    for (i = 0; i < NoOfOwnCmds; i++) {
-        if (strcmp(parsed[0], ListOfOwnCmds[i]) == 0) {
-            switchOwnArg = i + 1;
-            break;
-        }
-    }
-
-    switch (switchOwnArg) {
-    case 1:
-        printf("\nGoodbye\n");
-        exit(0);
-    case 2:
-        chdir(parsed[1]);
-        return 1;
-    case 3:
-        openHelp();
-        return 1;
-    case 4:
-        username = getenv("USER");
-        printf("\nHello %s.\nMind that this is "
-            "not a place to play around."
-            "\nUse help to know more..\n",
-            username);
-        return 1;
-    default:
-        break;
-    }
-
-    return 0;
-}
-
-/* 
-function for finding pipe
-*/
-int parsePipe(char *str, char **strpiped)
-{
-    int i;
-    for (i = 0; i < 2; i++) {
-        strpiped[i] = strsep(&str, "|");
-        if (strpiped[i] == NULL)
-            break;
-    }
-
-    if (strpiped[1] == NULL)
-        return 0; /* 
-        returns zero if no pipe is found.
-    */else
-     {
-        return 1;
-    }
-}
-
-/* 
-function for parsing command words
-*/
-void parseSpace(char *str, char **parsed)
-{
-    int i;
-
-    for (i = 0; i < MAXLIST; i++) {
-        parsed[i] = strsep(&str, " ");
-
-        if (parsed[i] == NULL)
-            break;
-        if (strlen(parsed[i]) == 0)
-            i--;
-    }
-}
-
-int processString(char *str, char **parsed, char **parsedpipe)
-{
-
-    char *strpiped[2];
-    int piped = 0;
-
-    piped = parsePipe(str, strpiped);
-
-    if (piped) {
-        parseSpace(strpiped[0], parsed);
-        parseSpace(strpiped[1], parsedpipe);
-
-    } else {
-
-        parseSpace(str, parsed);
-    }
-
-    if (ownCmdHandler(parsed))
-        return 0;
-    else
-        return 1 + piped;
-}
-
-int main()
-{
-    char inputString[MAXCOM], *parsedArgs[MAXLIST];
-    char *parsedArgsPiped[MAXLIST];
-    int execFlag = 0;
-    init_shell();
-
-    while (1) {
-        /* 
-        print shell line
-        */
-        printDir();
-        /* 
-        take input
-        */
-        if (takeInput(inputString))
-            continue;
-        /* 
-        process
-        */
-        execFlag = processString(inputString,
-        parsedArgs, parsedArgsPiped);
-        /* 
-        execflag returns zero if there is no command
-        */
-        /* 
-        or it is a builtin command,
-        */
-        /* 
-        1 if it is a simple command
-        */
-        /* 
-        2 if it is including a pipe.
-*/
-
-        /* 
-        execute
-        */
-        if (execFlag == 1)
-            execArgs(parsedArgs);
-
-        if (execFlag == 2)
-            execArgsPiped(parsedArgs, parsedArgsPiped);
-    }
-    return 0;
+		if (error_code == EOF)
+		{
+			free_all_data(data);
+			exit(errno); /* if EOF is the fisrt Char of string, exit*/
+		}
+		if (string_len >= 1)
+		{
+			expand_alias(data);
+			expand_variables(data);
+			tokenize(data);
+			if (data->tokens[0])
+			{ /* if a text is given to prompt, execute */
+				error_code = execute(data);
+				if (error_code != 0)
+					_print_error(error_code, data);
+			}
+			free_recurrent_data(data);
+		}
+	}
 }
