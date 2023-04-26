@@ -15,13 +15,13 @@ char **tokening(char *buffer, const char *s)
 	if (buffer == NULL)
 		return (NULL);
 
-	bufsize = _strlen(buffer);
+	bufsize = strlen(buffer);
 	commands = malloc((bufsize + 1) * sizeof(char *));
 	if (commands == NULL)
 	{
 		perror("Unable to allocate buffer");
 		free(buffer);
-		free_dp(commands);
+		free(commands);
 		exit(EXIT_FAILURE);
 	}
 
@@ -32,10 +32,10 @@ char **tokening(char *buffer, const char *s)
 		if (commands[i] == NULL)
 		{
 			perror("Unable to allocate buffer");
-			free_dp(commands);
+			free(commands);
 			return (NULL);
 		}
-		_strcpy(commands[i], token);
+		strcpy(commands[i], token);
 		token = strtok(NULL, s);
 		i++;
 	}
